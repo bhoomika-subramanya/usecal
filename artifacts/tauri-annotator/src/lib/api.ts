@@ -10,6 +10,8 @@ export interface Annotation {
   sourceTitle: string | null;
   sourceApp: string | null;
   sourceWindowTitle: string | null;
+  localFilePath: string | null;
+  osTagsSynced: boolean;
   isPinned: boolean;
   tags: string[];
   createdAt: string;
@@ -25,6 +27,8 @@ export interface CreateAnnotationBody {
   sourceTitle?: string | null;
   sourceApp?: string | null;
   sourceWindowTitle?: string | null;
+  localFilePath?: string | null;
+  osTagsSynced?: boolean;
   tags?: string[];
 }
 

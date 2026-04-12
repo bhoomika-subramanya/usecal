@@ -33,7 +33,7 @@ pnpm workspace monorepo using TypeScript. Universal Annotator — a desktop-clas
 
 ## Database Schema
 
-- `annotations` — id, title, content, type (text|highlight|drawing|link), color, source_url, source_title, is_pinned, tags (array), created_at, updated_at
+- `annotations` — id, title, content, type (text|highlight|drawing|link), color, source_url, source_title, source_app, source_window_title, local_file_path, os_tags_synced, is_pinned, tags (array), created_at, updated_at
 - `tags` — id, name, color, created_at
 
 ## Key Commands

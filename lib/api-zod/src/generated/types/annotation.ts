@@ -21,6 +21,9 @@ export interface Annotation {
   sourceApp: string | null;
   /** @nullable */
   sourceWindowTitle: string | null;
+  /** @nullable */
+  localFilePath: string | null;
+  osTagsSynced: boolean;
   isPinned: boolean;
   tags: string[];
   createdAt: Date;

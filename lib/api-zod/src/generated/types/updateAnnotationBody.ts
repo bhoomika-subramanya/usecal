@@ -20,6 +20,9 @@ export interface UpdateAnnotationBody {
   sourceApp?: string | null;
   /** @nullable */
   sourceWindowTitle?: string | null;
+  /** @nullable */
+  localFilePath?: string | null;
+  osTagsSynced?: boolean;
   tags?: string[];
   isPinned?: boolean;
 }

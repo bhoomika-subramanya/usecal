@@ -262,6 +262,10 @@ components:
           type: ["string", "null"]
         sourceWindowTitle:
           type: ["string", "null"]
+        localFilePath:
+          type: ["string", "null"]
+        osTagsSynced:
+          type: boolean
         isPinned:
           type: boolean
         tags:
@@ -284,6 +288,8 @@ components:
         - sourceTitle
         - sourceApp
         - sourceWindowTitle
+        - localFilePath
+        - osTagsSynced
         - isPinned
         - tags
         - createdAt
@@ -309,6 +315,10 @@ components:
           type: ["string", "null"]
         sourceWindowTitle:
           type: ["string", "null"]
+        localFilePath:
+          type: ["string", "null"]
+        osTagsSynced:
+          type: boolean
         tags:
           type: array
           items:
@@ -338,6 +348,10 @@ components:
           type: ["string", "null"]
         sourceWindowTitle:
           type: ["string", "null"]
+        localFilePath:
+          type: ["string", "null"]
+        osTagsSynced:
+          type: boolean
         tags:
           type: array
           items:

@@ -15,6 +15,8 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  FolderOpen,
+  AppWindow,
 } from "lucide-react";
 import { api, type Annotation, type CreateAnnotationBody } from "@/lib/api";
 import {
@@ -78,6 +80,7 @@ export default function Popup() {
   const [title, setTitle] = useState("");
   const [sourceApp, setSourceApp] = useState("");
   const [sourceWindowTitle, setSourceWindowTitle] = useState("");
+  const [localFilePath, setLocalFilePath] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [screenshot, setScreenshot] = useState<string | null>(null);
@@ -86,6 +89,7 @@ export default function Popup() {
   const [recentAnnotations, setRecentAnnotations] = useState<Annotation[]>([]);
   const [showRecent, setShowRecent] = useState(false);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
+  const [isDetectingWindow, setIsDetectingWindow] = useState(true);
 
   useEffect(() => {
     if (contentRef.current) {
@@ -96,13 +100,18 @@ export default function Popup() {
   }, []);
 
   async function loadActiveWindow() {
-    const info = await getActiveWindow();
-    if (info) {
-      setSourceApp(info.app);
-      setSourceWindowTitle(info.title);
-    } else if (!isTauri()) {
-      setSourceApp("Browser");
-      setSourceWindowTitle(document.title || "Web Preview");
+    setIsDetectingWindow(true);
+    try {
+      const info = await getActiveWindow();
+      if (info) {
+        setSourceApp(info.app);
+        setSourceWindowTitle(info.title);
+      } else if (!isTauri()) {
+        setSourceApp("Browser");
+        setSourceWindowTitle(document.title || "Web Preview");
+      }
+    } finally {
+      setIsDetectingWindow(false);
     }
   }
 
@@ -120,8 +129,8 @@ export default function Popup() {
   const handleScreenshot = useCallback(async () => {
     if (!isTauri()) {
       toast({
-        title: "Not available in browser",
-        description: "Screenshot capture only works in the desktop app.",
+        title: "Desktop only",
+        description: "Screenshot capture only works in the native desktop app.",
       });
       return;
     }
@@ -162,11 +171,18 @@ export default function Popup() {
         color: TYPE_CONFIG[type].color,
         sourceApp: sourceApp || null,
         sourceWindowTitle: sourceWindowTitle || null,
+        localFilePath: localFilePath.trim() || null,
+        osTagsSynced: false,
         tags,
       };
 
       await api.annotations.create(body);
       setSaved(true);
+
+      toast({
+        title: "Annotation saved",
+        description: sourceApp ? `Captured from ${sourceApp}` : "Saved successfully",
+      });
 
       setTimeout(async () => {
         if (isTauri()) {
@@ -193,6 +209,7 @@ export default function Popup() {
     setTags([]);
     setTagInput("");
     setScreenshot(null);
+    setLocalFilePath("");
     setType("text");
   }
 
@@ -216,7 +233,7 @@ export default function Popup() {
         initial={{ opacity: 0, scale: 0.96, y: -8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
-        className="w-full max-w-[520px] glass-panel rounded-2xl overflow-hidden"
+        className="w-full max-w-[540px] glass-panel rounded-2xl overflow-hidden"
         style={{
           boxShadow:
             "0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06)",
@@ -237,7 +254,6 @@ export default function Popup() {
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            {/* Type pills */}
             {(Object.keys(TYPE_CONFIG) as AnnotationType[]).map((t) => (
               <button
                 key={t}
@@ -260,29 +276,48 @@ export default function Popup() {
           </div>
         </div>
 
-        {/* Source info strip */}
-        {(sourceApp || sourceWindowTitle) && (
-          <div className="flex items-center gap-2 px-5 pb-3">
-            <Monitor className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-            <div className="flex items-center gap-1.5 min-w-0">
-              {sourceApp && (
-                <span className="text-xs font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-md shrink-0">
+        {/* Source metadata strip */}
+        <div className="px-5 pb-3">
+          <div
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+          >
+            {isDetectingWindow ? (
+              <Loader2 className="w-3.5 h-3.5 text-muted-foreground shrink-0 animate-spin" />
+            ) : (
+              <AppWindow className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            )}
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {sourceApp ? (
+                <span
+                  className="text-xs font-semibold px-2 py-0.5 rounded-md shrink-0"
+                  style={{
+                    background: `${cfg.color}20`,
+                    color: cfg.color,
+                    border: `1px solid ${cfg.color}30`,
+                  }}
+                >
                   {sourceApp}
                 </span>
-              )}
-              {sourceWindowTitle && (
+              ) : null}
+              {sourceWindowTitle ? (
                 <span className="text-xs text-muted-foreground truncate">
                   {sourceWindowTitle}
                 </span>
+              ) : (
+                <span className="text-xs text-muted-foreground/40 italic">
+                  {isDetectingWindow ? "Detecting active window…" : "No window detected"}
+                </span>
               )}
             </div>
+            <Monitor className="w-3 h-3 text-muted-foreground/40 shrink-0" />
           </div>
-        )}
+        </div>
 
         {/* Divider */}
         <div className="h-px bg-border/50 mx-5" />
 
-        {/* Optional title */}
+        {/* Title */}
         <div className="px-5 pt-4">
           <input
             type="text"
@@ -297,12 +332,12 @@ export default function Popup() {
         <div className="px-5 pb-3">
           <textarea
             ref={contentRef}
-            rows={5}
+            rows={4}
             placeholder={
               type === "link"
-                ? "Paste a URL or describe this link..."
+                ? "Paste a URL or describe this link…"
                 : type === "highlight"
-                ? "Paste highlighted text here..."
+                ? "Paste highlighted text here…"
                 : "What would you like to annotate?"
             }
             value={content}
@@ -328,7 +363,7 @@ export default function Popup() {
                 />
                 <button
                   onClick={() => setScreenshot(null)}
-                  className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80"
+                  className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center hover:bg-black/80 transition-colors"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -336,6 +371,28 @@ export default function Popup() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* File path field */}
+        <div className="px-5 pb-3">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <FolderOpen className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+            <input
+              type="text"
+              placeholder="Local file or folder path (optional)"
+              value={localFilePath}
+              onChange={(e) => setLocalFilePath(e.target.value)}
+              className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/40 outline-none border-none font-mono"
+            />
+            {localFilePath && (
+              <button
+                onClick={() => setLocalFilePath("")}
+                className="text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
 
         {/* Tags */}
         <div className="px-5 pb-3">
@@ -354,7 +411,7 @@ export default function Popup() {
             ))}
             <input
               type="text"
-              placeholder="Add tag..."
+              placeholder="Add tag…"
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               onKeyDown={handleTagKeyDown}
@@ -377,7 +434,7 @@ export default function Popup() {
           </button>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground hidden sm:block">
+            <span className="text-xs text-muted-foreground hidden sm:block opacity-60">
               ⌘↩ to save
             </span>
             <motion.button
@@ -407,11 +464,8 @@ export default function Popup() {
           </div>
         </div>
 
-        {/* Recent annotations toggle */}
-        <div
-          className="h-px bg-border/50 mx-5 cursor-pointer"
-          onClick={() => setShowRecent((v) => !v)}
-        />
+        {/* Recent annotations */}
+        <div className="h-px bg-border/50 mx-5" />
         <button
           onClick={() => setShowRecent((v) => !v)}
           className="w-full flex items-center justify-between px-5 py-2.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -432,7 +486,7 @@ export default function Popup() {
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden"
             >
-              <div className="px-3 pb-3 space-y-1 max-h-56 overflow-y-auto">
+              <div className="px-3 pb-3 space-y-1 max-h-52 overflow-y-auto">
                 {isLoadingRecent ? (
                   <div className="flex justify-center py-4">
                     <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
@@ -450,10 +504,9 @@ export default function Popup() {
                         className="flex items-start gap-2.5 px-3 py-2 rounded-xl hover:bg-secondary/60 transition-colors cursor-default"
                       >
                         <div
-                          className="w-1 rounded-full shrink-0 mt-1"
+                          className="w-1 rounded-full shrink-0 mt-1.5"
                           style={{
-                            height: "calc(100% - 8px)",
-                            minHeight: "14px",
+                            height: "28px",
                             background: typeCfg.color,
                           }}
                         />
@@ -472,11 +525,18 @@ export default function Popup() {
                           <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                             {a.content}
                           </p>
-                          {a.sourceApp && (
-                            <span className="text-[10px] text-primary/70 font-medium">
-                              {a.sourceApp}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {a.sourceApp && (
+                              <span className="text-[10px] font-medium" style={{ color: typeCfg.color }}>
+                                {a.sourceApp}
+                              </span>
+                            )}
+                            {a.localFilePath && (
+                              <span className="text-[10px] text-muted-foreground/60 font-mono truncate max-w-[140px]">
+                                {a.localFilePath.split("/").pop() || a.localFilePath}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

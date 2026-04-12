@@ -20,5 +20,8 @@ export interface CreateAnnotationBody {
   sourceApp?: string | null;
   /** @nullable */
   sourceWindowTitle?: string | null;
+  /** @nullable */
+  localFilePath?: string | null;
+  osTagsSynced?: boolean;
   tags?: string[];
 }

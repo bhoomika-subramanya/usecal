@@ -12,6 +12,8 @@ export const annotationsTable = pgTable("annotations", {
   sourceTitle: text("source_title"),
   sourceApp: text("source_app"),
   sourceWindowTitle: text("source_window_title"),
+  localFilePath: text("local_file_path"),
+  osTagsSynced: boolean("os_tags_synced").notNull().default(false),
   isPinned: boolean("is_pinned").notNull().default(false),
   tags: text("tags").array().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
