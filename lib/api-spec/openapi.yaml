@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Universal Annotator API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: annotations
+    description: Annotation operations
+  - name: tags
+    description: Tag operations
 paths:
   /healthz:
     get:
@@ -24,6 +28,208 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /annotations:
+    get:
+      operationId: listAnnotations
+      tags: [annotations]
+      summary: List all annotations
+      parameters:
+        - in: query
+          name: tag
+          schema:
+            type: string
+          description: Filter by tag name
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [text, highlight, drawing, link]
+          description: Filter by annotation type
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search annotations by content or title
+        - in: query
+          name: pinned
+          schema:
+            type: string
+            enum: ["true", "false"]
+          description: Filter pinned annotations
+      responses:
+        "200":
+          description: List of annotations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Annotation"
+    post:
+      operationId: createAnnotation
+      tags: [annotations]
+      summary: Create a new annotation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAnnotationBody"
+      responses:
+        "201":
+          description: Created annotation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Annotation"
+
+  /annotations/stats:
+    get:
+      operationId: getAnnotationStats
+      tags: [annotations]
+      summary: Get annotation statistics
+      responses:
+        "200":
+          description: Annotation statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnotationStats"
+
+  /annotations/recent:
+    get:
+      operationId: getRecentAnnotations
+      tags: [annotations]
+      summary: Get recently created or modified annotations
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: Max number of results (default 10)
+      responses:
+        "200":
+          description: Recent annotations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Annotation"
+
+  /annotations/{id}:
+    get:
+      operationId: getAnnotation
+      tags: [annotations]
+      summary: Get a single annotation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Annotation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Annotation"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateAnnotation
+      tags: [annotations]
+      summary: Update an annotation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAnnotationBody"
+      responses:
+        "200":
+          description: Updated annotation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Annotation"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteAnnotation
+      tags: [annotations]
+      summary: Delete an annotation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /annotations/{id}/pin:
+    patch:
+      operationId: toggleAnnotationPin
+      tags: [annotations]
+      summary: Toggle pin status of an annotation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated annotation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Annotation"
+        "404":
+          description: Not found
+
+  /tags:
+    get:
+      operationId: listTags
+      tags: [tags]
+      summary: List all tags with annotation counts
+      responses:
+        "200":
+          description: List of tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tag"
+    post:
+      operationId: createTag
+      tags: [tags]
+      summary: Create a tag
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTagBody"
+      responses:
+        "201":
+          description: Created tag
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tag"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +240,155 @@ components:
       required:
         - status
 
+    Annotation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          type: string
+          enum: [text, highlight, drawing, link]
+        color:
+          type: string
+        sourceUrl:
+          type: ["string", "null"]
+        sourceTitle:
+          type: ["string", "null"]
+        isPinned:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - content
+        - type
+        - color
+        - sourceUrl
+        - sourceTitle
+        - isPinned
+        - tags
+        - createdAt
+        - updatedAt
+
+    CreateAnnotationBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          type: string
+          enum: [text, highlight, drawing, link]
+        color:
+          type: string
+        sourceUrl:
+          type: ["string", "null"]
+        sourceTitle:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+      required:
+        - title
+        - content
+        - type
+
+    UpdateAnnotationBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          type: string
+          enum: [text, highlight, drawing, link]
+        color:
+          type: string
+        sourceUrl:
+          type: ["string", "null"]
+        sourceTitle:
+          type: ["string", "null"]
+        tags:
+          type: array
+          items:
+            type: string
+        isPinned:
+          type: boolean
+
+    AnnotationStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        byType:
+          type: object
+          properties:
+            text:
+              type: integer
+            highlight:
+              type: integer
+            drawing:
+              type: integer
+            link:
+              type: integer
+          required:
+            - text
+            - highlight
+            - drawing
+            - link
+        pinned:
+          type: integer
+        totalTags:
+          type: integer
+      required:
+        - total
+        - byType
+        - pinned
+        - totalTags
+
+    Tag:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        color:
+          type: string
+        annotationCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - color
+        - annotationCount
+        - createdAt
+
+    CreateTagBody:
+      type: object
+      properties:
+        name:
+          type: string
+        color:
+          type: string
+      required:
+        - name
