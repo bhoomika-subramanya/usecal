@@ -23,7 +23,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Global shortcut for popup
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
         setLocation('/popup');
       }
@@ -93,7 +93,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Command className="w-4 h-4" />
             <div className="flex flex-col">
               <span>Open Popup</span>
-              <span className="font-mono text-[10px] opacity-70">Ctrl+Shift+A</span>
+              <span className="font-mono text-[10px] opacity-70">Ctrl+Shift+L</span>
             </div>
           </Link>
         </div>
