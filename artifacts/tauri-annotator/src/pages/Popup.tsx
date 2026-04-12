@@ -194,14 +194,29 @@ export default function Popup() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // Escape → dismiss
       if (e.key === "Escape") {
         e.preventDefault();
         dismiss();
+        return;
+      }
+      // Ctrl+Shift+L (or Cmd+Shift+L on macOS) → toggle popup
+      // In the native desktop app this is handled by the Rust global shortcut;
+      // this listener makes it work in the web preview too.
+      const isToggle =
+        (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "l";
+      if (isToggle) {
+        e.preventDefault();
+        if (dismissed) {
+          reopen();
+        } else {
+          dismiss();
+        }
       }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [dismiss]);
+  }, [dismiss, reopen, dismissed]);
 
   // ── Boot sequence ──────────────────────────────────────────────────────────
 
