@@ -27,11 +27,11 @@ pub fn run() {
 fn setup_global_shortcut(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.clone();
 
-    // Register Ctrl+Shift+A on Windows/Linux, Cmd+Shift+A on macOS
+    // Register Ctrl+Shift+L on Windows/Linux, Cmd+Shift+L on macOS
     #[cfg(target_os = "macos")]
-    let shortcut = "Cmd+Shift+A";
+    let shortcut = "Cmd+Shift+L";
     #[cfg(not(target_os = "macos"))]
-    let shortcut = "Ctrl+Shift+A";
+    let shortcut = "Ctrl+Shift+L";
 
     app.global_shortcut().on_shortcut(shortcut, move |_app, _shortcut, event| {
         if event.state() == ShortcutState::Pressed {
