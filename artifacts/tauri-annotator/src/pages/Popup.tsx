@@ -10,11 +10,12 @@ import {
   Loader2,
   CheckCircle2,
   ChevronDown,
-  ChevronUp,
   FolderOpen,
   AppWindow,
   Tag,
   Pin,
+  ShieldAlert,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,8 +28,15 @@ import {
   captureScreenshot,
   hideWindow,
   isTauri,
+  getPlatform,
+  checkAccessibilityPermission,
+  openAccessibilitySettings,
+  listenPopupShown,
+  type PopupShownPayload,
 } from "@/lib/tauri";
 import { useToast } from "@/hooks/use-toast";
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 type AnnotationType = "text" | "highlight" | "drawing" | "link";
 
@@ -79,6 +87,70 @@ function relTime(dateStr: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+// ── Permission banner ────────────────────────────────────────────────────────
+
+function AccessibilityBanner({
+  onOpenSettings,
+  onDismiss,
+}: {
+  onOpenSettings: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center gap-5 px-6 py-8 text-center"
+      style={{ minHeight: "220px" }}
+    >
+      <div
+        className="w-12 h-12 rounded-2xl flex items-center justify-center"
+        style={{ background: "rgba(250,204,21,0.12)", border: "1px solid rgba(250,204,21,0.25)" }}
+      >
+        <ShieldAlert className="w-6 h-6" style={{ color: "#FACC15" }} />
+      </div>
+
+      <div className="space-y-1.5">
+        <p className="text-sm font-semibold text-foreground">
+          Accessibility Permission Required
+        </p>
+        <p className="text-xs text-muted-foreground leading-relaxed max-w-[300px]">
+          Universal Annotator needs Accessibility access to detect your active
+          window and app context. Your data never leaves your device.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2 w-full max-w-[240px]">
+        <Button
+          onClick={onOpenSettings}
+          size="sm"
+          className="gap-1.5 text-xs font-semibold"
+          style={{
+            background: "rgba(250,204,21,0.15)",
+            color: "#FACC15",
+            border: "1px solid rgba(250,204,21,0.3)",
+          }}
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          Open System Settings
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDismiss}
+          className="text-xs text-muted-foreground hover:text-foreground"
+        >
+          Continue without permission
+        </Button>
+      </div>
+
+      <p className="text-[10px] text-muted-foreground/40">
+        After granting access, reopen the popup with Ctrl+Shift+L
+      </p>
+    </div>
+  );
+}
+
+// ── Main popup ───────────────────────────────────────────────────────────────
+
 export default function Popup() {
   const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -97,14 +169,61 @@ export default function Popup() {
   const [recentList, setRecentList] = useState<Annotation[]>([]);
   const [showRecent, setShowRecent] = useState(false);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
+  const [showPermissionBanner, setShowPermissionBanner] = useState(false);
 
   const activeCfg = TYPES.find((t) => t.id === type)!;
+  const platform = getPlatform();
+
+  // ── Boot sequence ──────────────────────────────────────────────────────────
 
   useEffect(() => {
+    // Auto-focus textarea immediately
     textareaRef.current?.focus();
-    detectWindow();
+
+    // Check macOS Accessibility permission
+    if (platform === "macos" && isTauri()) {
+      checkAccessibilityPermission().then((granted) => {
+        if (!granted) setShowPermissionBanner(true);
+      });
+    }
+
+    // Initial source window detection (for web preview fallback)
+    if (!isTauri()) {
+      setSourceApp("Browser");
+      setSourceWindowTitle(document.title || "Tauri Annotator");
+      setIsDetecting(false);
+    } else {
+      detectWindow();
+    }
+
     fetchRecent();
+
+    // Listen for `popup-shown` events emitted by Rust when the hotkey fires.
+    // The payload contains the source window captured BEFORE our popup stole focus.
+    let unlisten: (() => void) | null = null;
+    listenPopupShown((payload: PopupShownPayload) => {
+      applySourceInfo(payload);
+      // Re-focus the textarea after a tick (window needs to be fully visible)
+      setTimeout(() => textareaRef.current?.focus(), 80);
+      // Refresh recent list on every open
+      fetchRecent();
+    }).then((fn) => {
+      unlisten = fn;
+    });
+
+    return () => {
+      unlisten?.();
+    };
   }, []);
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  function applySourceInfo(payload: PopupShownPayload) {
+    if (payload.sourceApp != null) setSourceApp(payload.sourceApp);
+    if (payload.sourceWindowTitle != null)
+      setSourceWindowTitle(payload.sourceWindowTitle);
+    setIsDetecting(false);
+  }
 
   async function detectWindow() {
     setIsDetecting(true);
@@ -113,9 +232,6 @@ export default function Popup() {
       if (info) {
         setSourceApp(info.app);
         setSourceWindowTitle(info.title);
-      } else if (!isTauri()) {
-        setSourceApp("Browser");
-        setSourceWindowTitle(document.title || "Tauri Annotator");
       }
     } finally {
       setIsDetecting(false);
@@ -133,6 +249,8 @@ export default function Popup() {
       setIsLoadingRecent(false);
     }
   }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
 
   const handleScreenshot = useCallback(async () => {
     if (!isTauri()) {
@@ -183,12 +301,13 @@ export default function Popup() {
 
       setJustSaved(true);
       toast({
-        title: "Annotation saved successfully",
+        title: "Annotation saved",
         description: sourceApp
           ? `Captured from ${sourceApp}`
-          : "Your annotation has been saved.",
+          : "Saved successfully.",
       });
 
+      // Reset form after brief "saved" flash, keep popup open
       setTimeout(() => {
         resetForm();
         setJustSaved(false);
@@ -215,9 +334,20 @@ export default function Popup() {
     setType("text");
   }
 
+  // Global keyboard handler for the popup card
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") handleSave();
-    if (e.key === "Escape") hideWindow();
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      handleSave();
+    }
+    if (e.key === "Escape") {
+      hideWindow();
+    }
+  };
+
+  // Click the translucent backdrop to dismiss
+  const handleBackdropClick = () => {
+    if (isTauri()) hideWindow();
   };
 
   const placeholder =
@@ -229,25 +359,48 @@ export default function Popup() {
       ? "Describe the drawing or sketch…"
       : "What would you like to annotate?";
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <div
       className="min-h-screen flex items-center justify-center p-6"
       style={{ background: "transparent" }}
+      onClick={handleBackdropClick}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: -10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-[520px] rounded-2xl overflow-hidden glass-panel"
         style={{
           boxShadow:
-            "0 0 0 1px rgba(255,255,255,0.07), 0 24px 64px rgba(0,0,0,0.75), 0 8px 24px rgba(0,0,0,0.5)",
+            "0 0 0 1px rgba(255,255,255,0.07), 0 28px 72px rgba(0,0,0,0.8), 0 8px 24px rgba(0,0,0,0.5)",
         }}
+        // Stop backdrop click from propagating into the card
+        onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
-        {/* ── Header ─────────────────────────────────────────── */}
+        {/* ── Accessibility permission banner (macOS only) ───────────── */}
+        <AnimatePresence>
+          {showPermissionBanner && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <AccessibilityBanner
+                onOpenSettings={async () => {
+                  await openAccessibilitySettings();
+                }}
+                onDismiss={() => setShowPermissionBanner(false)}
+              />
+              <Separator className="opacity-40" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Header ─────────────────────────────────────────────────── */}
         <div className="flex items-center gap-2.5 px-5 pt-4 pb-4">
-          {/* animated type icon */}
           <motion.div
             key={type}
             initial={{ scale: 0.8, opacity: 0 }}
@@ -267,7 +420,7 @@ export default function Popup() {
             Quick Annotate
           </p>
 
-          {/* Type pills — pushed to the right */}
+          {/* Type selector pills */}
           <div className="flex items-center gap-1 ml-auto">
             {TYPES.map((t) => (
               <button
@@ -295,7 +448,7 @@ export default function Popup() {
           </div>
         </div>
 
-        {/* ── Source strip ────────────────────────────────────── */}
+        {/* ── Source strip ─────────────────────────────────────────────── */}
         <div className="px-5 pb-4">
           <div
             className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl"
@@ -311,9 +464,9 @@ export default function Popup() {
             )}
 
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              {sourceApp ? (
+              {sourceApp && (
                 <span
-                  className="text-xs font-semibold px-2 py-0.5 rounded-md shrink-0 leading-snug"
+                  className="text-xs font-semibold px-2 py-0.5 rounded-md shrink-0"
                   style={{
                     background: `${activeCfg.color}18`,
                     color: activeCfg.color,
@@ -322,7 +475,7 @@ export default function Popup() {
                 >
                   {sourceApp}
                 </span>
-              ) : null}
+              )}
               <span className="text-xs text-muted-foreground truncate">
                 {isDetecting
                   ? "Detecting active window…"
@@ -338,7 +491,7 @@ export default function Popup() {
 
         <Separator className="mx-5 w-auto opacity-40" />
 
-        {/* ── Content textarea ────────────────────────────────── */}
+        {/* ── Content textarea ─────────────────────────────────────────── */}
         <div className="px-5 pt-4 pb-3">
           <Textarea
             ref={textareaRef}
@@ -346,11 +499,11 @@ export default function Popup() {
             placeholder={placeholder}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="resize-none bg-transparent border-none shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm leading-relaxed placeholder:text-muted-foreground/45 p-0 min-h-0"
+            className="resize-none bg-transparent border-none shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm leading-relaxed placeholder:text-muted-foreground/40 p-0 min-h-0"
           />
         </div>
 
-        {/* ── Screenshot preview ──────────────────────────────── */}
+        {/* ── Screenshot preview ───────────────────────────────────────── */}
         <AnimatePresence>
           {screenshot && (
             <motion.div
@@ -376,10 +529,10 @@ export default function Popup() {
           )}
         </AnimatePresence>
 
-        {/* ── File path ───────────────────────────────────────── */}
+        {/* ── File path ────────────────────────────────────────────────── */}
         <div className="px-5 pb-3">
           <div
-            className="flex items-center gap-2 px-3 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg"
             style={{
               background: "rgba(255,255,255,0.025)",
               border: "1px solid rgba(255,255,255,0.055)",
@@ -404,7 +557,7 @@ export default function Popup() {
           </div>
         </div>
 
-        {/* ── Tags ────────────────────────────────────────────── */}
+        {/* ── Tags ─────────────────────────────────────────────────────── */}
         <div className="px-5 pb-4">
           <div className="flex flex-wrap items-center gap-1.5">
             <Tag className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" />
@@ -436,9 +589,8 @@ export default function Popup() {
 
         <Separator className="mx-5 w-auto opacity-40" />
 
-        {/* ── Action bar ──────────────────────────────────────── */}
+        {/* ── Action bar ───────────────────────────────────────────────── */}
         <div className="flex items-center justify-between gap-3 px-5 py-3.5">
-          {/* Screenshot button */}
           <Button
             variant="ghost"
             size="sm"
@@ -450,11 +602,11 @@ export default function Popup() {
           </Button>
 
           <div className="flex items-center gap-2.5">
+            {/* Platform-appropriate shortcut hint */}
             <span className="text-[11px] text-muted-foreground/40 hidden sm:block">
-              ⌘↩ to save
+              {platform === "macos" ? "⌘↩" : "Ctrl+↩"} to save
             </span>
 
-            {/* Save button */}
             <motion.div whileTap={{ scale: 0.97 }}>
               <Button
                 onClick={handleSave}
@@ -484,17 +636,17 @@ export default function Popup() {
                 ) : (
                   <CheckCircle2 className="w-3.5 h-3.5 opacity-70" />
                 )}
-                {justSaved ? "Saved!" : "Save Annotation"}
+                {isSaving ? "Saving…" : justSaved ? "Saved!" : "Save Annotation"}
               </Button>
             </motion.div>
           </div>
         </div>
 
-        {/* ── Recent annotations ──────────────────────────────── */}
+        {/* ── Recent annotations ───────────────────────────────────────── */}
         <Separator className="mx-5 w-auto opacity-40" />
         <button
           onClick={() => setShowRecent((v) => !v)}
-          className="w-full flex items-center justify-between px-5 py-3 text-xs text-muted-foreground hover:text-foreground transition-colors group"
+          className="w-full flex items-center justify-between px-5 py-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <span className="font-medium">Recent annotations</span>
           <motion.span
@@ -513,7 +665,7 @@ export default function Popup() {
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden"
             >
-              <ScrollArea className="max-h-52">
+              <ScrollArea className="max-h-48">
                 <div className="px-3 pb-3 space-y-0.5">
                   {isLoadingRecent ? (
                     <div className="flex justify-center py-5">
@@ -529,11 +681,14 @@ export default function Popup() {
                       return (
                         <div
                           key={a.id}
-                          className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary/50 transition-colors cursor-default group/item"
+                          className="flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-secondary/50 transition-colors cursor-default"
                         >
                           <div
                             className="w-0.5 rounded-full shrink-0 self-stretch mt-0.5"
-                            style={{ background: cfg.color, minHeight: "28px" }}
+                            style={{
+                              background: cfg.color,
+                              minHeight: "28px",
+                            }}
                           />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 mb-0.5">

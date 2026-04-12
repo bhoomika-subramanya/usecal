@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Popup from "@/pages/Popup";
 
 const queryClient = new QueryClient({
@@ -13,7 +14,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Popup />
+        <ErrorBoundary>
+          <Popup />
+        </ErrorBoundary>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
