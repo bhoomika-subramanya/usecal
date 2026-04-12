@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/tauri-annotator/"
+title = "Tauri Annotator (Desktop)"
+version = "1.0.0"
+id = "artifacts/tauri-annotator"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/tauri-annotator/" ]
+localPort = 8080
+
+[services.development]
+run = "pnpm --filter @workspace/tauri-annotator run serve"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/tauri-annotator", "run", "build" ]
+publicDir = "artifacts/tauri-annotator/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "8080"
+BASE_PATH = "/tauri-annotator/"

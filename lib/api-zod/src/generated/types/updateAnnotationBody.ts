@@ -16,6 +16,10 @@ export interface UpdateAnnotationBody {
   sourceUrl?: string | null;
   /** @nullable */
   sourceTitle?: string | null;
+  /** @nullable */
+  sourceApp?: string | null;
+  /** @nullable */
+  sourceWindowTitle?: string | null;
   tags?: string[];
   isPinned?: boolean;
 }

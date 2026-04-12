@@ -258,6 +258,10 @@ components:
           type: ["string", "null"]
         sourceTitle:
           type: ["string", "null"]
+        sourceApp:
+          type: ["string", "null"]
+        sourceWindowTitle:
+          type: ["string", "null"]
         isPinned:
           type: boolean
         tags:
@@ -278,6 +282,8 @@ components:
         - color
         - sourceUrl
         - sourceTitle
+        - sourceApp
+        - sourceWindowTitle
         - isPinned
         - tags
         - createdAt
@@ -298,6 +304,10 @@ components:
         sourceUrl:
           type: ["string", "null"]
         sourceTitle:
+          type: ["string", "null"]
+        sourceApp:
+          type: ["string", "null"]
+        sourceWindowTitle:
           type: ["string", "null"]
         tags:
           type: array
@@ -323,6 +333,10 @@ components:
         sourceUrl:
           type: ["string", "null"]
         sourceTitle:
+          type: ["string", "null"]
+        sourceApp:
+          type: ["string", "null"]
+        sourceWindowTitle:
           type: ["string", "null"]
         tags:
           type: array

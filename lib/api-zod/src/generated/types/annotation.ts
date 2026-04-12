@@ -17,6 +17,10 @@ export interface Annotation {
   sourceUrl: string | null;
   /** @nullable */
   sourceTitle: string | null;
+  /** @nullable */
+  sourceApp: string | null;
+  /** @nullable */
+  sourceWindowTitle: string | null;
   isPinned: boolean;
   tags: string[];
   createdAt: Date;

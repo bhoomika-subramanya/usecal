@@ -29,6 +29,10 @@ export interface Annotation {
   sourceUrl: string | null;
   /** @nullable */
   sourceTitle: string | null;
+  /** @nullable */
+  sourceApp: string | null;
+  /** @nullable */
+  sourceWindowTitle: string | null;
   isPinned: boolean;
   tags: string[];
   createdAt: string;
@@ -54,6 +58,10 @@ export interface CreateAnnotationBody {
   sourceUrl?: string | null;
   /** @nullable */
   sourceTitle?: string | null;
+  /** @nullable */
+  sourceApp?: string | null;
+  /** @nullable */
+  sourceWindowTitle?: string | null;
   tags?: string[];
 }
 
@@ -76,6 +84,10 @@ export interface UpdateAnnotationBody {
   sourceUrl?: string | null;
   /** @nullable */
   sourceTitle?: string | null;
+  /** @nullable */
+  sourceApp?: string | null;
+  /** @nullable */
+  sourceWindowTitle?: string | null;
   tags?: string[];
   isPinned?: boolean;
 }

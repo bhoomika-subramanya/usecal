@@ -10,6 +10,8 @@ export const annotationsTable = pgTable("annotations", {
   color: text("color").notNull().default("#FACC15"),
   sourceUrl: text("source_url"),
   sourceTitle: text("source_title"),
+  sourceApp: text("source_app"),
+  sourceWindowTitle: text("source_window_title"),
   isPinned: boolean("is_pinned").notNull().default(false),
   tags: text("tags").array().notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
