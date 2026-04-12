@@ -175,6 +175,13 @@ export default function Popup() {
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
+  // ── Native OS tag panel ───────────────────────────────────────────────────
+  const [showTagPanel, setShowTagPanel] = useState(false);
+  const [nativeTagInput, setNativeTagInput] = useState("");
+  const [pendingNativeTags, setPendingNativeTags] = useState<string[]>([]);
+  const [nativeTagColor, setNativeTagColor] = useState<TagColor>("yellow");
+  const [isTagging, setIsTagging] = useState(false);
+
   const activeCfg = TYPES.find((t) => t.id === type)!;
   const platform = getPlatform();
 
@@ -336,6 +343,87 @@ export default function Popup() {
     highlight: "green",
     drawing: "purple",
     link: "blue",
+  };
+
+  // ── Native OS tag constants ───────────────────────────────────────────────
+
+  const TAG_SUGGESTIONS = [
+    "Review", "Important", "Bug", "Fix",
+    "Done", "Urgent", "Reference", "Idea",
+  ];
+
+  const TAG_COLORS: { value: TagColor; hex: string; label: string }[] = [
+    { value: "gray",   hex: "#8E8E93", label: "Gray"   },
+    { value: "green",  hex: "#34C759", label: "Green"  },
+    { value: "purple", hex: "#AF52DE", label: "Purple" },
+    { value: "blue",   hex: "#007AFF", label: "Blue"   },
+    { value: "yellow", hex: "#FFCC00", label: "Yellow" },
+    { value: "red",    hex: "#FF3B30", label: "Red"    },
+    { value: "orange", hex: "#FF9500", label: "Orange" },
+  ];
+
+  function platformSuccessLabel(): string {
+    if (platform === "macos")   return "Finder tag applied";
+    if (platform === "windows") return "Windows tag applied";
+    if (platform === "linux")   return "Tag applied (user.xdg.tags)";
+    return "Tag saved";
+  }
+
+  const toggleSuggestion = (name: string) => {
+    setPendingNativeTags((prev) =>
+      prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name],
+    );
+  };
+
+  const commitNativeTagInput = () => {
+    const v = nativeTagInput.trim();
+    if (v && !pendingNativeTags.includes(v)) {
+      setPendingNativeTags((p) => [...p, v]);
+    }
+    setNativeTagInput("");
+  };
+
+  const handleApplyNativeTag = async () => {
+    // Commit anything still in the text input
+    const extra = nativeTagInput.trim();
+    const all = extra
+      ? [...pendingNativeTags, ...(pendingNativeTags.includes(extra) ? [] : [extra])]
+      : [...pendingNativeTags];
+
+    if (all.length === 0) return;
+
+    if (!isTauri()) {
+      toast({
+        title: "Desktop app required",
+        description: "Native OS tags are applied when running the Tauri desktop app, not in the browser preview.",
+      });
+      return;
+    }
+
+    setIsTagging(true);
+    try {
+      const results = await Promise.all(
+        all.map((t) => writeNativeTag(localFilePath.trim(), t, nativeTagColor)),
+      );
+      const errors = results.filter(Boolean) as string[];
+      if (errors.length === 0) {
+        toast({
+          title: platformSuccessLabel(),
+          description: `${all.length} tag${all.length > 1 ? "s" : ""} written to "${localFilePath.trim().split(/[\\/]/).pop()}"`,
+        });
+        setPendingNativeTags([]);
+        setNativeTagInput("");
+        setShowTagPanel(false);
+      } else {
+        toast({
+          title: "Some tags could not be applied",
+          description: errors.join("; "),
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsTagging(false);
+    }
   };
 
   const handleSave = async () => {
@@ -643,8 +731,9 @@ export default function Popup() {
           )}
         </AnimatePresence>
 
-        {/* ── File path ────────────────────────────────────────────────── */}
-        <div className="px-5 pb-3">
+        {/* ── File path + OS tag panel ─────────────────────────────────── */}
+        <div className="px-5 pb-3 flex flex-col gap-2">
+          {/* Path input row */}
           <div
             className="flex items-center gap-2 px-3 py-2 rounded-lg"
             style={{
@@ -670,38 +759,241 @@ export default function Popup() {
             )}
           </div>
 
-          {/* "Tag this file" quick-action (Tauri only, needs path + tags) */}
-          {isTauri() && localFilePath.trim() && tags.length > 0 && (
-            <button
-              onClick={async () => {
-                const tagColor = typeColorMap[type] ?? null;
-                const results = await Promise.all(
-                  tags.map((t) => writeNativeTag(localFilePath.trim(), t, tagColor)),
-                );
-                const errors = results.filter(Boolean) as string[];
-                if (errors.length === 0) {
-                  toast({ title: "Native tag applied to file" });
-                } else {
-                  toast({
-                    title: "Some native tags failed",
-                    description: errors.join("; "),
-                    variant: "destructive",
-                  });
-                }
-              }}
-              className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium transition-colors"
-              style={{ color: "rgba(250,204,21,0.7)" }}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLElement).style.color = "rgba(250,204,21,1)")
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLElement).style.color = "rgba(250,204,21,0.7)")
-              }
+          {/* ── "Tag this file/folder" button ─────────────────────────── */}
+          <button
+            disabled={!localFilePath.trim()}
+            onClick={() => {
+              if (!localFilePath.trim()) return;
+              setShowTagPanel((p) => !p);
+            }}
+            className="group flex items-center justify-between w-full px-3 py-2 rounded-lg text-xs font-medium transition-all"
+            style={{
+              background: showTagPanel
+                ? "rgba(250,204,21,0.10)"
+                : "rgba(250,204,21,0.05)",
+              border: showTagPanel
+                ? "1px solid rgba(250,204,21,0.30)"
+                : "1px solid rgba(250,204,21,0.12)",
+              color: !localFilePath.trim()
+                ? "rgba(250,204,21,0.25)"
+                : "rgba(250,204,21,0.85)",
+              cursor: localFilePath.trim() ? "pointer" : "not-allowed",
+            }}
+          >
+            <span className="flex items-center gap-2">
+              <Tag className="w-3.5 h-3.5 shrink-0" />
+              {localFilePath.trim()
+                ? `Tag "${localFilePath.trim().split(/[\\/]/).pop()}"`
+                : "Tag this file/folder"}
+              {pendingNativeTags.length > 0 && (
+                <span
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold"
+                  style={{ background: "rgba(250,204,21,0.25)", color: "#FACC15" }}
+                >
+                  {pendingNativeTags.length}
+                </span>
+              )}
+            </span>
+            <motion.div
+              animate={{ rotate: showTagPanel ? 180 : 0 }}
+              transition={{ duration: 0.18 }}
             >
-              <Tag className="w-3 h-3" />
-              Tag this file/folder now
-            </button>
-          )}
+              <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+            </motion.div>
+          </button>
+
+          {/* ── Inline tag panel ──────────────────────────────────────── */}
+          <AnimatePresence>
+            {showTagPanel && (
+              <motion.div
+                key="tag-panel"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div
+                  className="flex flex-col gap-3 px-3 py-3 rounded-lg"
+                  style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                  }}
+                >
+                  {/* Web-preview notice */}
+                  {!isTauri() && (
+                    <p className="text-[10px] text-muted-foreground/60 flex items-center gap-1.5">
+                      <ShieldAlert className="w-3 h-3 shrink-0" />
+                      Preview mode — tags will be written when running the desktop app.
+                    </p>
+                  )}
+
+                  {/* Suggestion chips */}
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground/50 mb-1.5">
+                      Quick tags
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {TAG_SUGGESTIONS.map((s) => {
+                        const active = pendingNativeTags.includes(s);
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => toggleSuggestion(s)}
+                            className="px-2 py-0.5 rounded-full text-[11px] font-medium transition-all"
+                            style={{
+                              background: active
+                                ? "rgba(250,204,21,0.18)"
+                                : "rgba(255,255,255,0.06)",
+                              border: active
+                                ? "1px solid rgba(250,204,21,0.45)"
+                                : "1px solid rgba(255,255,255,0.1)",
+                              color: active
+                                ? "#FACC15"
+                                : "rgba(255,255,255,0.6)",
+                            }}
+                          >
+                            {active && "✓ "}
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Custom tag input */}
+                  <div
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-md"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Custom tag name…"
+                      value={nativeTagInput}
+                      onChange={(e) => setNativeTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); commitNativeTagInput(); }
+                      }}
+                      className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground/35 outline-none border-none"
+                    />
+                    {nativeTagInput.trim() && (
+                      <button
+                        onClick={commitNativeTagInput}
+                        className="text-[10px] font-medium px-1.5 py-0.5 rounded transition-colors"
+                        style={{
+                          color: "#FACC15",
+                          background: "rgba(250,204,21,0.1)",
+                        }}
+                      >
+                        Add
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Pending tags preview */}
+                  {pendingNativeTags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {pendingNativeTags.map((t) => (
+                        <span
+                          key={t}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px]"
+                          style={{
+                            background: "rgba(250,204,21,0.14)",
+                            border: "1px solid rgba(250,204,21,0.3)",
+                            color: "#FACC15",
+                          }}
+                        >
+                          {t}
+                          <button
+                            onClick={() => setPendingNativeTags((p) => p.filter((x) => x !== t))}
+                            className="opacity-60 hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Color picker (always shown — primarily useful on macOS) */}
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground/50 mb-1.5">
+                      {platform === "macos" ? "Finder color" : "Tag color"}
+                      {platform !== "macos" && (
+                        <span className="ml-1 normal-case text-muted-foreground/35">(macOS only)</span>
+                      )}
+                    </p>
+                    <div className="flex gap-2">
+                      {TAG_COLORS.map(({ value, hex, label }) => (
+                        <button
+                          key={value}
+                          title={label}
+                          onClick={() => setNativeTagColor(value)}
+                          className="w-5 h-5 rounded-full transition-all"
+                          style={{
+                            background: hex,
+                            boxShadow:
+                              nativeTagColor === value
+                                ? `0 0 0 2px rgba(0,0,0,0.8), 0 0 0 4px ${hex}`
+                                : "none",
+                            transform: nativeTagColor === value ? "scale(1.2)" : "scale(1)",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Apply button */}
+                  <button
+                    onClick={handleApplyNativeTag}
+                    disabled={
+                      isTagging ||
+                      (pendingNativeTags.length === 0 && !nativeTagInput.trim())
+                    }
+                    className="flex items-center justify-center gap-2 w-full py-2 rounded-lg text-xs font-semibold transition-all"
+                    style={{
+                      background:
+                        isTagging ||
+                        (pendingNativeTags.length === 0 && !nativeTagInput.trim())
+                          ? "rgba(250,204,21,0.08)"
+                          : "rgba(250,204,21,0.18)",
+                      border:
+                        isTagging ||
+                        (pendingNativeTags.length === 0 && !nativeTagInput.trim())
+                          ? "1px solid rgba(250,204,21,0.12)"
+                          : "1px solid rgba(250,204,21,0.4)",
+                      color:
+                        isTagging ||
+                        (pendingNativeTags.length === 0 && !nativeTagInput.trim())
+                          ? "rgba(250,204,21,0.3)"
+                          : "#FACC15",
+                      cursor:
+                        isTagging ||
+                        (pendingNativeTags.length === 0 && !nativeTagInput.trim())
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    {isTagging ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Tag className="w-3.5 h-3.5" />
+                    )}
+                    {isTagging
+                      ? "Applying…"
+                      : platform === "macos"
+                      ? "Apply Finder tag"
+                      : platform === "windows"
+                      ? "Apply Windows tag"
+                      : "Apply tag"}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* ── Tags ─────────────────────────────────────────────────────── */}
