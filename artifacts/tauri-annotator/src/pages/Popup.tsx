@@ -170,9 +170,38 @@ export default function Popup() {
   const [showRecent, setShowRecent] = useState(false);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
   const [showPermissionBanner, setShowPermissionBanner] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   const activeCfg = TYPES.find((t) => t.id === type)!;
   const platform = getPlatform();
+
+  // ── Dismiss helper (works in both Tauri and web preview) ──────────────────
+
+  const dismiss = useCallback(() => {
+    if (isTauri()) {
+      hideWindow();
+    } else {
+      setDismissed(true);
+    }
+  }, []);
+
+  const reopen = useCallback(() => {
+    setDismissed(false);
+    setTimeout(() => textareaRef.current?.focus(), 60);
+  }, []);
+
+  // ── Document-level Escape listener ────────────────────────────────────────
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        dismiss();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [dismiss]);
 
   // ── Boot sequence ──────────────────────────────────────────────────────────
 
@@ -334,21 +363,16 @@ export default function Popup() {
     setType("text");
   }
 
-  // Global keyboard handler for the popup card
+  // Card-level keyboard handler (Escape is handled at document level)
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
       e.preventDefault();
       handleSave();
     }
-    if (e.key === "Escape") {
-      hideWindow();
-    }
   };
 
   // Click the translucent backdrop to dismiss
-  const handleBackdropClick = () => {
-    if (isTauri()) hideWindow();
-  };
+  const handleBackdropClick = () => dismiss();
 
   const placeholder =
     type === "link"
@@ -367,9 +391,26 @@ export default function Popup() {
       style={{ background: "transparent" }}
       onClick={handleBackdropClick}
     >
+      <AnimatePresence mode="wait">
+        {dismissed ? (
+          /* Web-preview dismissed state — click anywhere to reopen */
+          <motion.button
+            key="dismissed"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.15 }}
+            onClick={(e) => { e.stopPropagation(); reopen(); }}
+            className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors px-4 py-2 rounded-xl border border-border/30 hover:border-border/60"
+          >
+            Press Ctrl+Shift+L to open · click to preview
+          </motion.button>
+        ) : (
       <motion.div
+        key="popup"
         initial={{ opacity: 0, scale: 0.95, y: -10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: -6 }}
         transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
         className="w-full max-w-[520px] rounded-2xl overflow-hidden glass-panel"
         style={{
@@ -733,6 +774,8 @@ export default function Popup() {
           )}
         </AnimatePresence>
       </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
