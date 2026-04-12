@@ -214,6 +214,191 @@ pub async fn capture_screenshot() -> Result<String, String> {
     Ok(out)
 }
 
+// ── Native OS tag writing ─────────────────────────────────────────────────────
+
+/// Writes a tag to the file/folder using the native OS metadata store.
+///
+/// • macOS  – `com.apple.metadata:_kMDItemUserTags` (xattr, binary plist)
+/// • Windows – Windows.Storage WinRT via PowerShell
+/// • Linux  – `user.xdg.tags` (xattr, comma-separated)
+#[tauri::command]
+pub async fn write_native_tag(
+    local_file_path: String,
+    tag_name: String,
+    color: Option<String>,
+) -> Result<(), String> {
+    if local_file_path.trim().is_empty() {
+        return Err("No file path provided".to_string());
+    }
+    if tag_name.trim().is_empty() {
+        return Err("Tag name cannot be empty".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    return write_tag_macos(&local_file_path, &tag_name, color.as_deref());
+
+    #[cfg(target_os = "windows")]
+    return write_tag_windows(&local_file_path, &tag_name);
+
+    #[cfg(target_os = "linux")]
+    return write_tag_linux(&local_file_path, &tag_name);
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    Err("Native tags not supported on this platform".to_string())
+}
+
+// ── macOS implementation ──────────────────────────────────────────────────────
+
+#[cfg(target_os = "macos")]
+fn macos_color_index(color: Option<&str>) -> u8 {
+    match color.map(|s| s.to_lowercase()).as_deref() {
+        Some("gray") | Some("grey") => 1,
+        Some("green") => 2,
+        Some("purple") => 3,
+        Some("blue") => 4,
+        Some("yellow") => 5,
+        Some("red") => 6,
+        Some("orange") => 7,
+        _ => 0,
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn write_tag_macos(path: &str, tag: &str, color: Option<&str>) -> Result<(), String> {
+    const ATTR: &str = "com.apple.metadata:_kMDItemUserTags";
+
+    // Read existing tags (binary plist array of strings)
+    let mut tags: Vec<String> = match xattr::get(path, ATTR).map_err(|e| e.to_string())? {
+        Some(data) if !data.is_empty() => {
+            plist::from_bytes::<Vec<String>>(&data).unwrap_or_default()
+        }
+        _ => vec![],
+    };
+
+    let color_idx = macos_color_index(color);
+
+    // macOS tag format: "TagName\nColorIndex" (color 0 → no suffix needed)
+    let tag_str = if color_idx > 0 {
+        format!("{}\n{}", tag, color_idx)
+    } else {
+        tag.to_string()
+    };
+
+    // Deduplicate by name (ignore color differences)
+    let already_exists = tags
+        .iter()
+        .any(|t| t.split('\n').next().unwrap_or("") == tag);
+
+    if !already_exists {
+        tags.push(tag_str);
+    }
+
+    // Encode as binary plist and write back
+    let mut buf = Vec::new();
+    plist::to_writer_binary(std::io::Cursor::new(&mut buf), &tags)
+        .map_err(|e| e.to_string())?;
+
+    xattr::set(path, ATTR, &buf).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+// ── Windows implementation ────────────────────────────────────────────────────
+
+#[cfg(target_os = "windows")]
+fn write_tag_windows(path: &str, tag: &str) -> Result<(), String> {
+    use std::process::Command;
+
+    // Escape single quotes for PowerShell
+    let safe_path = path.replace('\'', "''");
+    let safe_tag = tag.replace('\'', "''");
+
+    // Use WinRT Windows.Storage API (Windows 10+) via PowerShell
+    let script = format!(
+        r#"
+$ErrorActionPreference = 'Stop'
+$filePath = '{path}'
+$newTag   = '{tag}'
+
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+
+# Helper to convert WinRT IAsyncOperation to .NET Task
+$asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() |
+    Where-Object {{
+        $_.Name -eq 'AsTask' -and
+        $_.GetParameters().Count -eq 1 -and
+        $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
+    }})[0]
+
+function Await($winRtTask, $type) {{
+    $task = $asTaskGeneric.MakeGenericMethod($type).Invoke($null, @($winRtTask))
+    $task.Wait(-1) | Out-Null
+    $task.Result
+}}
+
+# Load WinRT types
+$null = [Windows.Storage.StorageFile,         Windows.Storage,           ContentType=WindowsRuntime]
+$null = [Windows.Storage.FileProperties.DocumentProperties,
+         Windows.Storage.FileProperties, ContentType=WindowsRuntime]
+
+$absPath = [System.IO.Path]::GetFullPath($filePath)
+$file    = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($absPath)) ([Windows.Storage.StorageFile])
+$props   = Await ($file.Properties.GetDocumentPropertiesAsync()) ([Windows.Storage.FileProperties.DocumentProperties])
+
+if ($props.Keywords -notcontains $newTag) {{
+    $props.Keywords.Add($newTag)
+    Await ($props.SavePropertiesAsync()) ([System.Object]) | Out-Null
+}}
+
+Write-Host 'OK'
+"#,
+        path = safe_path,
+        tag = safe_tag
+    );
+
+    let output = Command::new("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command", &script])
+        .output()
+        .map_err(|e| format!("Failed to launch PowerShell: {}", e))?;
+
+    if output.status.success() {
+        Ok(())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        Err(format!("PowerShell tag error: {}", stderr.trim()))
+    }
+}
+
+// ── Linux implementation ──────────────────────────────────────────────────────
+
+#[cfg(target_os = "linux")]
+fn write_tag_linux(path: &str, tag: &str) -> Result<(), String> {
+    const ATTR: &str = "user.xdg.tags";
+
+    // Read existing tags (comma-separated plain text)
+    let existing_raw = xattr::get(path, ATTR).map_err(|e| e.to_string())?;
+    let existing_str = existing_raw
+        .as_deref()
+        .and_then(|b| std::str::from_utf8(b).ok())
+        .unwrap_or("")
+        .to_string();
+
+    let mut tags: Vec<String> = existing_str
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if !tags.iter().any(|t| t == tag) {
+        tags.push(tag.to_string());
+    }
+
+    let new_val = tags.join(",");
+    xattr::set(path, ATTR, new_val.as_bytes()).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 fn base64_encode(data: &[u8]) -> String {
     const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut result = String::with_capacity((data.len() + 2) / 3 * 4);

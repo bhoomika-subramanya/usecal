@@ -17,6 +17,7 @@ pub fn run() {
             commands::capture_screenshot,
             commands::check_accessibility_permission,
             commands::open_accessibility_settings,
+            commands::write_native_tag,
         ])
         .setup(|app| {
             setup_global_shortcut(app.handle())?;

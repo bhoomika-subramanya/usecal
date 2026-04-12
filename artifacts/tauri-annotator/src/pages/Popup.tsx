@@ -32,7 +32,9 @@ import {
   checkAccessibilityPermission,
   openAccessibilitySettings,
   listenPopupShown,
+  writeNativeTag,
   type PopupShownPayload,
+  type TagColor,
 } from "@/lib/tauri";
 import { useToast } from "@/hooks/use-toast";
 
@@ -328,6 +330,14 @@ export default function Popup() {
     }
   };
 
+  // Map annotation type → macOS Finder tag color
+  const typeColorMap: Record<string, TagColor> = {
+    text: "yellow",
+    highlight: "green",
+    drawing: "purple",
+    link: "blue",
+  };
+
   const handleSave = async () => {
     if (!content.trim()) {
       textareaRef.current?.focus();
@@ -335,6 +345,7 @@ export default function Popup() {
     }
     setIsSaving(true);
     try {
+      const trimmedPath = localFilePath.trim();
       const body: CreateAnnotationBody = {
         title: content.trim().slice(0, 80),
         content: content.trim(),
@@ -342,7 +353,7 @@ export default function Popup() {
         color: activeCfg.color,
         sourceApp: sourceApp || null,
         sourceWindowTitle: sourceWindowTitle || null,
-        localFilePath: localFilePath.trim() || null,
+        localFilePath: trimmedPath || null,
         osTagsSynced: false,
         tags,
       };
@@ -355,6 +366,27 @@ export default function Popup() {
           ? `Captured from ${sourceApp}`
           : "Saved successfully.",
       });
+
+      // Write tags to the file/folder via native OS APIs (Tauri only)
+      if (trimmedPath && tags.length > 0 && isTauri()) {
+        const tagColor = typeColorMap[type] ?? null;
+        // Fire-and-forget; report result after a short delay so the save
+        // toast is seen first
+        Promise.all(tags.map((t) => writeNativeTag(trimmedPath, t, tagColor))).then(
+          (results) => {
+            const errors = results.filter(Boolean) as string[];
+            if (errors.length === 0) {
+              toast({ title: "Native tag applied to file" });
+            } else {
+              toast({
+                title: "Some native tags failed",
+                description: errors.join("; "),
+                variant: "destructive",
+              });
+            }
+          },
+        );
+      }
 
       // Reset form after brief "saved" flash, keep popup open
       setTimeout(() => {
@@ -637,6 +669,39 @@ export default function Popup() {
               </button>
             )}
           </div>
+
+          {/* "Tag this file" quick-action (Tauri only, needs path + tags) */}
+          {isTauri() && localFilePath.trim() && tags.length > 0 && (
+            <button
+              onClick={async () => {
+                const tagColor = typeColorMap[type] ?? null;
+                const results = await Promise.all(
+                  tags.map((t) => writeNativeTag(localFilePath.trim(), t, tagColor)),
+                );
+                const errors = results.filter(Boolean) as string[];
+                if (errors.length === 0) {
+                  toast({ title: "Native tag applied to file" });
+                } else {
+                  toast({
+                    title: "Some native tags failed",
+                    description: errors.join("; "),
+                    variant: "destructive",
+                  });
+                }
+              }}
+              className="mt-1.5 flex items-center gap-1.5 text-[11px] font-medium transition-colors"
+              style={{ color: "rgba(250,204,21,0.7)" }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLElement).style.color = "rgba(250,204,21,1)")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLElement).style.color = "rgba(250,204,21,0.7)")
+              }
+            >
+              <Tag className="w-3 h-3" />
+              Tag this file/folder now
+            </button>
+          )}
         </div>
 
         {/* ── Tags ─────────────────────────────────────────────────────── */}

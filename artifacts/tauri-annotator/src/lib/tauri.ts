@@ -103,6 +103,47 @@ export async function openAccessibilitySettings(): Promise<void> {
   } catch {}
 }
 
+// ── Native OS tag writing ─────────────────────────────────────────────────────
+
+export type TagColor =
+  | "gray"
+  | "green"
+  | "purple"
+  | "blue"
+  | "yellow"
+  | "red"
+  | "orange"
+  | null;
+
+/**
+ * Writes a tag to the file/folder using the native OS metadata API.
+ *
+ * • macOS   → Finder tags  (`com.apple.metadata:_kMDItemUserTags` xattr)
+ * • Windows → System.Keywords / Tags (WinRT Windows.Storage)
+ * • Linux   → `user.xdg.tags` xattr
+ *
+ * Returns `null` on success; an error message string on failure.
+ * In the web preview (non-Tauri) always returns `null` (no-op).
+ */
+export async function writeNativeTag(
+  localFilePath: string,
+  tagName: string,
+  color?: TagColor,
+): Promise<string | null> {
+  if (!isTauri()) return null;
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    await invoke("write_native_tag", {
+      localFilePath,
+      tagName,
+      color: color ?? null,
+    });
+    return null;
+  } catch (err: unknown) {
+    return err instanceof Error ? err.message : String(err);
+  }
+}
+
 // ── Global shortcut (frontend registration — used as a fallback) ─────────────
 
 export async function registerGlobalShortcut(
