@@ -154,6 +154,7 @@ function AccessibilityBanner({
 export default function Popup() {
   const { toast } = useToast();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const dismissedBtnRef = useRef<HTMLButtonElement>(null);
 
   const [type, setType] = useState<AnnotationType>("text");
   const [content, setContent] = useState("");
@@ -182,6 +183,10 @@ export default function Popup() {
       hideWindow();
     } else {
       setDismissed(true);
+      // Immediately move focus to the dismissed button so the iframe keeps
+      // keyboard focus — otherwise the browser shifts focus to the parent
+      // document (Replit editor) and our keydown listeners stop firing.
+      setTimeout(() => dismissedBtnRef.current?.focus(), 80);
     }
   }, []);
 
@@ -408,17 +413,38 @@ export default function Popup() {
     >
       <AnimatePresence mode="wait">
         {dismissed ? (
-          /* Web-preview dismissed state — click anywhere to reopen */
+          /* Web-preview dismissed state — auto-focused so keyboard keeps working */
           <motion.button
             key="dismissed"
-            initial={{ opacity: 0, scale: 0.9 }}
+            ref={dismissedBtnRef}
+            initial={{ opacity: 0, scale: 0.92 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
+            exit={{ opacity: 0, scale: 0.92 }}
             transition={{ duration: 0.15 }}
             onClick={(e) => { e.stopPropagation(); reopen(); }}
-            className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors px-4 py-2 rounded-xl border border-border/30 hover:border-border/60"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); reopen(); }
+              if (e.key === "Escape") { e.preventDefault(); /* already dismissed */ }
+            }}
+            className="outline-none focus:outline-none glass-panel rounded-2xl px-8 py-5 flex flex-col items-center gap-3 cursor-pointer group"
+            style={{
+              boxShadow: "0 0 0 1px rgba(255,255,255,0.07), 0 12px 40px rgba(0,0,0,0.6)",
+            }}
           >
-            Press Ctrl+Shift+L to open · click to preview
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center"
+              style={{ background: "rgba(250,204,21,0.12)", border: "1px solid rgba(250,204,21,0.2)", color: "#FACC15" }}
+            >
+              <FileText className="w-4 h-4" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-semibold text-foreground group-hover:text-white transition-colors">
+                Quick Annotate
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Press <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}>Ctrl+Shift+L</kbd> or click to open
+              </p>
+            </div>
           </motion.button>
         ) : (
       <motion.div
