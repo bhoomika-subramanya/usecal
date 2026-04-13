@@ -174,20 +174,24 @@ pub fn check_accessibility_permission() -> bool {
 /// Opens the system accessibility settings panel.
 #[tauri::command]
 pub async fn open_accessibility_settings(app: tauri::AppHandle) -> Result<(), String> {
-    use tauri_plugin_shell::ShellExt;
-
     #[cfg(target_os = "macos")]
-    app.shell()
-        .open(
-            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
-            None,
-        )
-        .map_err(|e| e.to_string())?;
+    {
+        use tauri_plugin_shell::ShellExt;
+        app.shell()
+            .open(
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+                None,
+            )
+            .map_err(|e| e.to_string())?;
+    }
 
     #[cfg(target_os = "windows")]
-    app.shell()
-        .open("ms-settings:privacy-accessibilityonboard", None)
-        .map_err(|e| e.to_string())?;
+    {
+        use tauri_plugin_shell::ShellExt;
+        app.shell()
+            .open("ms-settings:privacy-accessibilityonboard", None)
+            .map_err(|e| e.to_string())?;
+    }
 
     #[cfg(target_os = "linux")]
     {
@@ -203,11 +207,17 @@ pub async fn open_accessibility_settings(app: tauri::AppHandle) -> Result<(), St
 #[tauri::command]
 pub async fn capture_screenshot() -> Result<String, String> {
     use screenshots::Screen;
+    use screenshots::image::{DynamicImage, ImageFormat};
+    use std::io::Cursor;
 
     let screens = Screen::all().map_err(|e| e.to_string())?;
     let screen = screens.into_iter().next().ok_or("No screens found")?;
     let image = screen.capture().map_err(|e| e.to_string())?;
-    let png_data = image.to_png(None).map_err(|e| e.to_string())?;
+
+    let mut png_data: Vec<u8> = Vec::new();
+    DynamicImage::ImageRgba8(image)
+        .write_to(&mut Cursor::new(&mut png_data), ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
 
     let mut out = String::from("data:image/png;base64,");
     out.push_str(&base64_encode(&png_data));
