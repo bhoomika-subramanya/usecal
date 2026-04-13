@@ -89,9 +89,13 @@ jobs:
       - name: Generate icons
         run: node artifacts/tauri-annotator/scripts/generate-icons.cjs
 
-      # ── Build React frontend (BASE_PATH=/ for Tauri's file:// serving) ──
+      # ── Build React frontend (BASE_PATH=/ PORT=1420 for Tauri bundling) ──
+      # env: key sets vars cross-platform (works on Windows, macOS, Linux).
       - name: Build frontend
         working-directory: artifacts/tauri-annotator
+        env:
+          BASE_PATH: /
+          PORT: "1420"
         run: pnpm run tauri:build
 
       # ── Tauri build + GitHub Release ────────────────────────────────────

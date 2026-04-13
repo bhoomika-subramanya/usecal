@@ -404,9 +404,6 @@ importers:
       '@tauri-apps/api':
         specifier: ^2.10.1
         version: 2.10.1
-      '@tauri-apps/cli':
-        specifier: ^2
-        version: 2.10.1
       '@tauri-apps/plugin-global-shortcut':
         specifier: ^2.3.1
         version: 2.3.1
@@ -513,6 +510,9 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.21(react@19.1.0)
+      '@tauri-apps/cli':
+        specifier: ^2
+        version: 2.10.1
       '@types/node':
         specifier: 'catalog:'
         version: 25.3.5
