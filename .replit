@@ -53,4 +53,4 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-VITE_API_URL = "https://your-milestone1-backend.replit.app"
+VITE_API_URL = "https://replit.com/@team1124/Desktop-Usecalapp"
