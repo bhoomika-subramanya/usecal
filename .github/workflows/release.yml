@@ -83,10 +83,10 @@ jobs:
       - name: Generate icons
         run: node artifacts/tauri-annotator/scripts/generate-icons.cjs
 
-      # ── Build React frontend ────────────────────────────────────────────
+      # ── Build React frontend (BASE_PATH=/ for Tauri's file:// serving) ──
       - name: Build frontend
         working-directory: artifacts/tauri-annotator
-        run: pnpm run build
+        run: pnpm run tauri:build
 
       # ── Tauri build + GitHub Release ────────────────────────────────────
       - name: Build and release

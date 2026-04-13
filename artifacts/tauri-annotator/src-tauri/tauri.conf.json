@@ -4,7 +4,7 @@
   "identifier": "com.universal-annotator.app",
   "version": "1.0.0",
   "build": {
-    "frontendDist": "../dist",
+    "frontendDist": "../dist/public",
     "devUrl": "http://localhost:25410/tauri-annotator/"
   },
   "app": {

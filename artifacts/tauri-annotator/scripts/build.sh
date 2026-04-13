@@ -51,9 +51,10 @@ else
 fi
 
 # ── 4. Build frontend ────────────────────────────────────────────────────────
+# Uses BASE_PATH=/ so Tauri's tauri:// serving resolves assets from the root.
 print_step "Building React frontend…"
 cd "$TAURI_DIR"
-pnpm run build
+pnpm run tauri:build
 
 # ── 5. Tauri build ───────────────────────────────────────────────────────────
 print_step "Running tauri build…"
