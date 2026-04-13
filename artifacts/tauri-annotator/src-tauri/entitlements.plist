@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Distributed outside the Mac App Store — no sandbox required.
+       This lets us write xattr Finder tags and call AppleScript for
+       active window detection without restrictions. -->
+  <key>com.apple.security.app-sandbox</key>
+  <false/>
+
+  <!-- Allow outbound HTTP/HTTPS to reach the annotation API server -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+
+  <!-- Allow AppleScript automation (used to detect the frontmost app) -->
+  <key>com.apple.security.automation.apple-events</key>
+  <true/>
+
+  <!-- Accessibility API — needed to read the active window title reliably.
+       The user is prompted to grant this in System Settings → Privacy. -->
+  <key>com.apple.security.accessibility</key>
+  <true/>
+</dict>
+</plist>
