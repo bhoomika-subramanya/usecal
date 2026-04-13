@@ -1,4 +1,11 @@
-const BASE_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+// In the Tauri desktop app VITE_API_URL points to the remote API origin
+// (e.g. "https://your-api.replit.dev"). In a plain browser we always use a
+// same-origin relative path so that no CORS preflight is required.
+const _isTauri = typeof window !== "undefined" && "__TAURI__" in window;
+const _apiOrigin = _isTauri
+  ? (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "")
+  : "";
+const BASE_URL = _apiOrigin ? `${_apiOrigin}/api` : "/api";
 
 export interface Annotation {
   id: number;
@@ -33,7 +40,7 @@ export interface CreateAnnotationBody {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = BASE_URL ? `${BASE_URL}${path}` : `/api${path}`;
+  const url = `${BASE_URL}${path}`;
   const res = await fetch(url, {
     ...init,
     headers: {

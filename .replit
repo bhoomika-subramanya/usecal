@@ -49,3 +49,8 @@ externalPort = 4200
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+VITE_API_URL = "https://f97e4629-bab5-4ed1-abd4-cea419046857-00-2abwwj2fznqe6.kirk.replit.dev"
