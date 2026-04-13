@@ -63,9 +63,6 @@
         "type": "downloadBootstrapper"
       },
       "nsis": {
-        "oneclick": false,
-        "perMachine": false,
-        "allowToChangeInstallationDirectory": true,
         "installMode": "currentUser"
       }
     },
