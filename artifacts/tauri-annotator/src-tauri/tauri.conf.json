@@ -9,12 +9,6 @@
   },
   "app": {
     "withGlobalTauri": false,
-    "trayIcon": {
-      "iconPath": "icons/icon.png",
-      "iconAsTemplate": true,
-      "menuOnLeftClick": false,
-      "title": "Universal Annotator"
-    },
     "windows": [
       {
         "label": "popup",

@@ -76,14 +76,20 @@ fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
 
     let app_handle = app.clone();
-    TrayIconBuilder::new()
+    let mut builder = TrayIconBuilder::new()
         .menu(&menu)
+        .tooltip("Universal Annotator — Ctrl+Shift+L")
         .on_menu_event(move |_tray, event| match event.id().as_ref() {
             "show" => toggle_popup(&app_handle),
             "quit" => std::process::exit(0),
             _ => {}
-        })
-        .build(app)?;
+        });
+
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+
+    builder.build(app)?;
 
     Ok(())
 }
