@@ -129,7 +129,7 @@ artifacts/tauri-annotator/src-tauri/target/release/bundle/
 ### Windows
 1. Run the `.exe` installer → follow the NSIS wizard.
 2. The app starts in the system tray (bottom-right taskbar area).
-3. Press **Ctrl+Shift+L** to open the popup.
+3. Press **Ctrl+Alt+L** to open the popup.
 4. Test native tagging: paste a file path into the "Local file" field, add a tag,
    click **Apply Windows tag**, then open File Explorer → right-click the file →
    Properties → Details → check the **Tags** field.
@@ -139,7 +139,7 @@ artifacts/tauri-annotator/src-tauri/target/release/bundle/
 2. **deb**: `sudo dpkg -i universal-annotator_*_amd64.deb`
 3. The app runs in the system tray (needs an AppIndicator-compatible DE such as
    GNOME with the AppIndicator extension, KDE, or XFCE).
-4. Press **Ctrl+Shift+L** to open the popup.
+4. Press **Ctrl+Alt+L** to open the popup.
 5. Verify xattr tagging: `getfattr -n user.xdg.tags /path/to/file`
 
 ### Smoke-test checklist

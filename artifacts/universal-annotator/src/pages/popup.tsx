@@ -101,7 +101,7 @@ export default function Popup() {
           <Keyboard className="w-3.5 h-3.5" />
           <span>Press</span>
           <kbd className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/20 font-mono text-[10px] text-white">
-            Ctrl+Shift+L
+            Ctrl+Alt+L
           </kbd>
           <span>anywhere to open this popup system-wide (in Tauri desktop build)</span>
         </div>

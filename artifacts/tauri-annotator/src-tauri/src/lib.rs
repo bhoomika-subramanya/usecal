@@ -34,12 +34,12 @@ pub fn run() {
 fn setup_global_shortcut(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let app_handle = app.clone();
 
-    // Ctrl+Shift+Space is less likely to conflict than Ctrl+Shift+L on Windows.
+    // Ctrl+Alt+L for annotation capture. Cmd+Option+L on macOS.
     // We register both; whichever succeeds first wins.
     #[cfg(target_os = "macos")]
-    let shortcuts = ["Cmd+Shift+L", "Cmd+Shift+Space"];
+    let shortcuts = ["Cmd+Option+L", "Cmd+Shift+Space"];
     #[cfg(not(target_os = "macos"))]
-    let shortcuts = ["Ctrl+Shift+L", "Ctrl+Shift+Space"];
+    let shortcuts = ["Ctrl+Alt+L", "Ctrl+Shift+Space"];
 
     let mut registered = false;
     for shortcut in shortcuts {

@@ -93,7 +93,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Command className="w-4 h-4" />
             <div className="flex flex-col">
               <span>Open Popup</span>
-              <span className="font-mono text-[10px] opacity-70">Ctrl+Shift+L</span>
+              <span className="font-mono text-[10px] opacity-70">Ctrl+Alt+L</span>
             </div>
           </Link>
         </div>

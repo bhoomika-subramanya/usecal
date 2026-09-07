@@ -42,7 +42,7 @@
     "copyright": "© 2025 Universal Annotator",
     "category": "Utility",
     "shortDescription": "Global annotation popup — capture notes from any window instantly",
-    "longDescription": "Universal Annotator gives you a global Spotlight-style popup (Ctrl+Shift+L) to capture notes, highlights, drawings, and links from any window. Supports native OS file tagging (Finder tags on macOS, System.Keywords on Windows, user.xdg.tags on Linux).",
+    "longDescription": "Universal Annotator gives you a global Spotlight-style popup (Ctrl+Alt+L) to capture notes, highlights, drawings, and links from any window. Supports native OS file tagging (Finder tags on macOS, System.Keywords on Windows, user.xdg.tags on Linux).",
     "macOS": {
       "minimumSystemVersion": "10.13",
       "entitlements": "./entitlements.plist",

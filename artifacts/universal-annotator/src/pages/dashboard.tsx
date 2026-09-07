@@ -125,6 +125,7 @@ function AnnotationCard({ annotation, index }: { annotation: Annotation; index: 
 
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useGetAnnotationStats();
+  console.log('stats data:', stats);
   const { data: recent, isLoading: recentLoading } = useGetRecentAnnotations({ limit: 8 });
 
   return (

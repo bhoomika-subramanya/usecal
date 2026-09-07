@@ -29,7 +29,7 @@ pnpm workspace monorepo using TypeScript. Universal Annotator — a desktop-clas
 - **Annotations** — searchable + filterable list with inline pin/delete
 - **Annotation Detail/Create** — full form with type, color, source URL, tags
 - **Tags** — tag management with color picker and annotation counts
-- **Popup** — simulated global hotkey popup (Ctrl+Shift+L), floating overlay with blur backdrop
+- **Popup** — simulated global hotkey popup (Ctrl+Alt+L), floating overlay with blur backdrop
 
 ## Database Schema
 
@@ -48,7 +48,7 @@ pnpm workspace monorepo using TypeScript. Universal Annotator — a desktop-clas
 ## Keyboard Shortcuts (in-app)
 
 - `N` — new annotation (when not in input)
-- `Ctrl+Shift+L` — open quick popup (simulated in browser; global shortcut in Tauri desktop app)
+- `Ctrl+Alt+L` — open quick popup (simulated in browser; global shortcut in Tauri desktop app)
 - `ESC` — close popup (click outside)
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

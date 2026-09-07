@@ -1,11 +1,7 @@
-// In the Tauri desktop app VITE_API_URL points to the remote API origin
-// (e.g. "https://your-api.replit.dev"). In a plain browser we always use a
-// same-origin relative path so that no CORS preflight is required.
-const _isTauri = typeof window !== "undefined" && "__TAURI__" in window;
-const _apiOrigin = _isTauri
-  ? (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "")
-  : "";
-const BASE_URL = _apiOrigin ? `${_apiOrigin}/api` : "/api";
+// VITE_API_URL points to the remote API origin (e.g. "https://your-api.replit.dev")
+// If not set, use relative path based on BASE_URL (for same-origin deployments)
+const _apiOrigin = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+const BASE_URL = _apiOrigin ? `${_apiOrigin}/api` : `${import.meta.env.BASE}api`;
 
 export interface Annotation {
   id: number;

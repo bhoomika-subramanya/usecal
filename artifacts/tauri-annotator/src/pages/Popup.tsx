@@ -145,7 +145,7 @@ function AccessibilityBanner({
       </div>
 
       <p className="text-[10px] text-muted-foreground/40">
-        After granting access, reopen the popup with Ctrl+Shift+L
+        After granting access, reopen the popup with Ctrl+Alt+L
       </p>
     </div>
   );
@@ -214,7 +214,7 @@ export default function Popup() {
         dismiss();
         return;
       }
-      // Ctrl+Shift+L (or Cmd+Shift+L on macOS) → toggle popup
+      // Ctrl+Alt+L (or Cmd+Option+L on macOS) → toggle popup
       // In the native desktop app this is handled by the Rust global shortcut;
       // this listener makes it work in the web preview too.
       const isToggle =
@@ -562,7 +562,7 @@ export default function Popup() {
                 Quick Annotate
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Press <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}>Ctrl+Shift+L</kbd> or click to open
+                Press <kbd className="px-1.5 py-0.5 rounded text-[10px] font-mono" style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)" }}>Ctrl+Alt+L</kbd> or click to open
               </p>
             </div>
           </motion.button>
