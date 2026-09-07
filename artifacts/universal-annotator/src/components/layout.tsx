@@ -1,4 +1,6 @@
 import { Link, useLocation } from "wouter";
+import { ModeToggle } from "@/components/mode-toggle";
+import { ExportButton } from "@/components/export-button";
 import { 
   LayoutDashboard, 
   StickyNote, 
@@ -23,7 +25,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Global shortcut for popup
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'l') {
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
         setLocation('/popup');
       }
@@ -88,14 +90,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
 
-        <div className="p-4 border-t border-border">
-          <Link href="/popup" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors p-2 rounded-md hover:bg-accent">
+        <div className="p-4 border-t border-border flex items-center justify-between">
+          <Link href="/popup" className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors p-2 rounded-md hover:bg-accent flex-1">
             <Command className="w-4 h-4" />
             <div className="flex flex-col">
               <span>Open Popup</span>
               <span className="font-mono text-[10px] opacity-70">Ctrl+Alt+L</span>
             </div>
           </Link>
+          <div className="flex items-center gap-2">
+            <ExportButton />
+            <ModeToggle />
+          </div>
         </div>
       </div>
 

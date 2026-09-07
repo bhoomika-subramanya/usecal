@@ -1,3 +1,4 @@
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -107,7 +108,10 @@ function AnnotationRow({
                 {type}
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground line-clamp-2">{annotation.content}</p>
+            <div className="max-h-24 overflow-hidden relative">
+              <MarkdownRenderer content={annotation.content} />
+              <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-card to-transparent pointer-events-none" />
+            </div>
             {annotation.sourceTitle && (
               <p className="text-[10px] text-muted-foreground/70 mt-1 truncate">
                 {annotation.sourceTitle}

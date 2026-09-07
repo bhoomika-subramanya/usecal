@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
@@ -13,6 +13,9 @@ import {
   Pin,
   ExternalLink,
   Tag,
+  Loader2,
+  Sparkles,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +50,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { uploadImageFile, captureWebScreenshot } from "@/lib/media";
 
 const typeColorMap: Record<string, string> = {
   text: "#FACC15",
@@ -81,7 +85,7 @@ export default function AnnotationDetail() {
   const { toast } = useToast();
 
   const isNew = !params.id || params.id === "new";
-  const id = isNew ? null : parseInt(params.id, 10);
+  const id = isNew ? null : parseInt(params.id!, 10);
 
   const { data: annotation, isLoading } = useGetAnnotation(
     id!,
@@ -120,6 +124,102 @@ export default function AnnotationDetail() {
   }, [annotation, form]);
 
   const watchedType = form.watch("type");
+
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [isTagging, setIsTagging] = useState(false);
+
+  const handleSummarize = async () => {
+    const content = form.getValues("content");
+    if (!content) return;
+    setIsSummarizing(true);
+    try {
+      const res = await fetch("http://localhost:3001/api/ai/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) throw new Error("Failed to summarize");
+      const data = await res.json();
+      if (data.summary) {
+        form.setValue("content", `**Summary:** ${data.summary}\n\n---\n\n${content}`, { shouldDirty: true });
+      }
+    } catch (error) {
+      console.error("Error summarizing:", error);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  const handleAutoTag = async () => {
+    const content = form.getValues("content");
+    if (!content) return;
+    setIsTagging(true);
+    try {
+      const res = await fetch("http://localhost:3001/api/ai/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) throw new Error("Failed to auto-tag");
+      const data = await res.json();
+      if (data.tags && Array.isArray(data.tags)) {
+        const currentTags = form.getValues("tags") || "";
+        const newTagsArray = [...new Set([...currentTags.split(",").map(t => t.trim()).filter(Boolean), ...data.tags])];
+        form.setValue("tags", newTagsArray.join(", "), { shouldDirty: true });
+      }
+    } catch (error) {
+      console.error("Error auto-tagging:", error);
+    } finally {
+      setIsTagging(false);
+    }
+  };
+
+  const handleImageUpload = async (file: File | Blob) => {
+    try {
+      const imgMarkdown = await uploadImageFile(file);
+      const currentContent = form.getValues().content || "";
+      form.setValue("content", currentContent + imgMarkdown, { shouldValidate: true });
+    } catch (err) {
+      console.error("Failed to upload image:", err);
+      toast({ description: "Failed to upload image", variant: "destructive" });
+    }
+  };
+
+  const handleScreenshot = async () => {
+    try {
+      const imgMarkdown = await captureWebScreenshot();
+      const currentContent = form.getValues().content || "";
+      form.setValue("content", currentContent + imgMarkdown, { shouldValidate: true });
+    } catch (err) {
+      console.error("Failed to capture screenshot:", err);
+      toast({ description: "Failed to capture screenshot", variant: "destructive" });
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) handleImageUpload(file);
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        const file = e.dataTransfer.files[i];
+        if (file.type.startsWith("image/")) handleImageUpload(file);
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
 
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: getListAnnotationsQueryKey() });
@@ -299,12 +399,27 @@ export default function AnnotationDetail() {
             name="content"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Content</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Content</FormLabel>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={handleScreenshot}>
+                      <Camera className="w-3 h-3 mr-1.5" />
+                      Screenshot
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={handleSummarize} disabled={isSummarizing || !form.watch("content")}>
+                      {isSummarizing ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1.5 text-primary" />}
+                      Summarize
+                    </Button>
+                  </div>
+                </div>
                 <FormControl>
                   <Textarea
                     placeholder="Write your annotation content..."
                     rows={6}
                     {...field}
+                    onPaste={handlePaste}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
                     data-testid="textarea-content"
                   />
                 </FormControl>
@@ -357,10 +472,16 @@ export default function AnnotationDetail() {
             name="tags"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5" />
-                  Tags
-                </FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel className="flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5" />
+                    Tags
+                  </FormLabel>
+                  <Button type="button" variant="outline" size="sm" onClick={handleAutoTag} disabled={isTagging || !form.watch("content")}>
+                    {isTagging ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1.5 text-primary" />}
+                    Auto-Tag
+                  </Button>
+                </div>
                 <FormControl>
                   <Input
                     placeholder="react, typescript, css (comma-separated)"

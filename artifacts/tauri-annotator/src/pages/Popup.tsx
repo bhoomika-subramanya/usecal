@@ -16,6 +16,7 @@ import {
   Pin,
   ShieldAlert,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -161,6 +162,7 @@ export default function Popup() {
   const [type, setType] = useState<AnnotationType>("text");
   const [content, setContent] = useState("");
   const [localFilePath, setLocalFilePath] = useState("");
+  const [isAutoTagging, setIsAutoTagging] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [screenshot, setScreenshot] = useState<string | null>(null);
@@ -217,9 +219,9 @@ export default function Popup() {
       // Ctrl+Alt+L (or Cmd+Option+L on macOS) → toggle popup
       // In the native desktop app this is handled by the Rust global shortcut;
       // this listener makes it work in the web preview too.
-      const isToggle =
-        (e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "l";
-      if (isToggle) {
+      const isShortcut = 
+        (e.ctrlKey || e.metaKey) && e.altKey && e.key.toLowerCase() === "l";
+      if (isShortcut) {
         e.preventDefault();
         if (dismissed) {
           reopen();
@@ -514,6 +516,70 @@ export default function Popup() {
   // Click the translucent backdrop to dismiss
   const handleBackdropClick = () => dismiss();
 
+  const handleAutoTag = async () => {
+    if (!content) return;
+    setIsAutoTagging(true);
+    try {
+      const res = await fetch("http://localhost:3001/api/ai/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (!res.ok) throw new Error("Failed to auto-tag");
+      const data = await res.json();
+      if (data.tags && Array.isArray(data.tags)) {
+        setTags(prev => [...new Set([...prev, ...data.tags])]);
+      }
+    } catch (error) {
+      console.error("Error auto-tagging:", error);
+    } finally {
+      setIsAutoTagging(false);
+    }
+  };
+
+  const handleImageUpload = async (file: File) => {
+    const formData = new FormData();
+    formData.append("image", file);
+    try {
+      const res = await fetch("http://localhost:3001/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const data = await res.json();
+      const imgUrl = "http://localhost:3001" + data.url;
+      const imgMarkdown = `\n![image](${imgUrl})\n`;
+      setContent((prev) => prev + imgMarkdown);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) handleImageUpload(file);
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        const file = e.dataTransfer.files[i];
+        if (file.type.startsWith("image/")) handleImageUpload(file);
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
   const placeholder =
     type === "link"
       ? "Paste a URL or describe the link…"
@@ -701,6 +767,9 @@ export default function Popup() {
             placeholder={placeholder}
             value={content}
             onChange={(e) => setContent(e.target.value)}
+            onPaste={handlePaste}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
             className="resize-none bg-transparent border-none shadow-none outline-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm leading-relaxed placeholder:text-muted-foreground/40 p-0 min-h-0"
           />
         </div>
@@ -1030,15 +1099,27 @@ export default function Popup() {
 
         {/* ── Action bar ───────────────────────────────────────────────── */}
         <div className="flex items-center justify-between gap-3 px-5 py-3.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleScreenshot}
-            className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <Camera className="w-3.5 h-3.5" />
-            {screenshot ? "Retake" : "Screenshot"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleScreenshot}
+              className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              {screenshot ? "Retake" : "Screenshot"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleAutoTag}
+              disabled={isAutoTagging || !content.trim()}
+              className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {isAutoTagging ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+              Auto-Tag
+            </Button>
+          </div>
 
           <div className="flex items-center gap-2.5">
             {/* Platform-appropriate shortcut hint */}

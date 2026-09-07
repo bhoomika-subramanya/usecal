@@ -21,15 +21,19 @@ pnpm workspace monorepo using TypeScript. Universal Annotator — a desktop-clas
 ## Artifacts
 
 - `artifacts/universal-annotator` — Main web app (preview path: `/`)
+- `artifacts/tauri-annotator` — Native Windows desktop wrapper with global hotkey support
 - `artifacts/api-server` — Express REST API (preview path: `/api`)
 
 ## Features
 
-- **Dashboard** — stats overview, recent annotations, pinned items, type breakdown chart
-- **Annotations** — searchable + filterable list with inline pin/delete
-- **Annotation Detail/Create** — full form with type, color, source URL, tags
-- **Tags** — tag management with color picker and annotation counts
-- **Popup** — simulated global hotkey popup (Ctrl+Alt+L), floating overlay with blur backdrop
+- **AI-Powered 🪄** — Auto-Tagging and Smart Summarization using Google Gemini 2.5 Flash
+- **Export Capabilities 📥** — Instantly export your notes as CSV, Markdown, or PDF
+- **Rich Text & Media** — Full Markdown rendering and drag-and-drop/paste image uploads
+- **Theming 🌓** — Dynamic Light/Dark mode toggling
+- **Dashboard** — Stats overview, recent annotations, pinned items, and type breakdown chart
+- **Annotations** — Searchable + filterable list with inline pin/delete
+- **Tags** — Tag management with color picker and annotation counts
+- **Popup** — Simulated global hotkey popup (Ctrl+Alt+L), floating overlay with blur backdrop
 
 ## Database Schema
 
@@ -40,7 +44,6 @@ pnpm workspace monorepo using TypeScript. Universal Annotator — a desktop-clas
 
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 - `pnpm --filter @workspace/universal-annotator run dev` — run frontend locally
